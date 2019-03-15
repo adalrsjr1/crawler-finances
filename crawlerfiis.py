@@ -3,13 +3,14 @@ from lxml import html
 
 class CrawlerFiis:
     def __init__(self):
-        self.url = 'https://fiis.com.br/indicadores-estendido/'
+        self.url = 'https://www.clubefii.com.br/proventos-rendimento-distribuicoes-amortizacoes_ajx?verifica_ultimo_provento=false'
 
     def gettable(self):
         r = requests.get(self.url)
         html_page = r.content
         tree = html.fromstring(html_page)
         table = tree.xpath('//tbody/tr')
+        print(table)
         return table
 
     def parserow(self, row):
@@ -64,10 +65,33 @@ class Fii:
     def yield12perc(self):
         return ((1.0 + self.yield1perc()) ** 12) - 1
 
+    def finaldiscountrate(self, rate, rf, risk_rate):
+        return rate * (1-rf) * (1+risk_rate)
+
+    def monthlydiscounterate(self, final_discount_rate):
+        return ((1+final_discount_rate) ** 1/12) - 1
+
+    def fairprice(self, final_discount_rate):
+        price = self.yield12 / self.monthlydiscounterate(final_discount_rate)
+        return (price, price/self.price)
+
+    def __str__(self):
+        final_discount_rate = self.finaldiscountrate(0.1248, 0.175, 0.10)
+        return "{}\tR$ {}\t{}\t{}\t{}\t{} {}".format(\
+            self.code, \
+            self.price, \
+            self.yield1, \
+            self.monthlydiscounterate(final_discount_rate), \
+            self.yield12, \
+            final_discount_rate, \
+            self.fairprice(final_discount_rate)
+        )
+
 if __name__ == '__main__':
     crawler = CrawlerFiis()
     table = crawler.gettable()
 
     for row in table:
-        fii = Fii(crawler.parserow(row))
-        print(fii.yield12perc())
+        print(row)
+        #fii = Fii(crawler.parserow(row))
+        #print("{}".format(fii))

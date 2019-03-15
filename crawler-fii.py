@@ -4,6 +4,7 @@ import argparse
 from os import path,stat
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.common.keys import Keys
 from lxml import html
 
@@ -32,7 +33,10 @@ def request_html():
     options = Options()
     options.headless = True
 
-    driver = webdriver.Firefox(options=options)
+    cap = DesiredCapabilities().FIREFOX
+    cap["marionette"] = False
+
+    driver = webdriver.Firefox(capabilities=cap, options=options, executable_path=".")
     # driver.implicity_wait(30)
     driver.get(url)
 
