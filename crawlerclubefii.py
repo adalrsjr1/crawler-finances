@@ -29,7 +29,7 @@ class CrawlerClubeFii:
 
     def save_html(self, content):
         with open('html.cache', 'w') as f:
-            f.write(content)
+            f.write(str(content))
 
     def load_html(self):
         with open('html.cache', 'r') as f:
@@ -59,7 +59,7 @@ class ParserClubeFiiTable:
     def parse_row(self, row):
         if 'tr' == row.tag:
             elements = row.xpath('.//td')
-            return [self._format_info(self._extract_info(elem)) for elem in elements[:7]]
+            return [self._format_info(self._extract_info(elem)) for elem in elements]
         return []
 
     def _extract_info(self, elem):
@@ -98,6 +98,7 @@ class Fii:
         self.yield1 = values[4]/100
         self.yield12 = values[5]/100
         self.type = values[6][0]
+        self.ref = values[7]
 
     def __str__(self):
         color = '\033[92m' # green
@@ -105,14 +106,18 @@ class Fii:
         if self.downside():
             color = '\33[91m'
 
-        return '{}{:>10} R$ {:<10.2f} R$ {:<10.2f} R$ {:<10.2f} {:5.2f}% {:10.4f} {} {}'.format(\
+        color = ''
+        endcolor = ''
+
+        return '{} {} {:>7} R$ {:<7.2f} R$ {:<8.2f} R$ {:<5.2f} {:5.2f}% {:8.2f}% {} {}'.format(\
         color,\
+        self.ref, \
         self.code, \
         self.price,\
         self.fair_price(),
         self.equity_price,\
         self.average_yield()*100,\
-        self.downside_value(),\
+        self.downside_perc()*100,\
         'D' if self.downside() else 'U',\
         endcolor,\
         )
@@ -136,7 +141,7 @@ class Fii:
     def downside(self):
         return self.yield1 < self.monthly_discounte_rate()
 
-    def downside_value(self):
+    def downside_perc(self):
         return self.fair_price_perc() - 1
 
     def average_yield(self):
@@ -144,20 +149,43 @@ class Fii:
 
     def fair_price(self):
         price = (self.yield1_price() / self.monthly_discounte_rate())
-        return price 
+        return price
 
     def fair_price_perc(self):
         return self.fair_price()/self.price
 
+from argparse import ArgumentParser
+
 if __name__ == '__main__':
-    #print(Fii(12.48/100, 0.1750, 0.10, ['XXXX', '', 100.00, 0, 0.83, 0.1047, 'a']))
+    arg_parse = ArgumentParser()
+    arg_parse.add_argument('--idka', type=float, help='http://www.anbima.com.br/idka/IDkA.asp', required=True)
+    arg_parse.add_argument('--rf', type=float, help='0.225 < 6 months, 6 months > 0.2 < 1 year, 1 year > 0.175 < 2 years, 0.15 < 2 years', default=0.175)
+    arg_parse.add_argument('--risk', type=float, help='0.1 or larger for more conservative models',default=0.1)
+    arg_parse.add_argument('--filter-price', type=float, help='upper bound of the FIIs price', default=250)
+
+    args = arg_parse.parse_args()
 
     crawler = CrawlerClubeFii()
     content = crawler.load_fiis()
 
     parser = ParserClubeFiiTable(content)
 
-    for row in parser.parse_table():
-        parsed_row = parser.parse_row(row)
-        fii = Fii(6.4492/100, 0.175, 0.20, parsed_row)
-        print(fii)
+    rate = args.idka
+    rf = args.rf
+    risk = args.risk
+
+    filter_price = args.filter_price
+
+    all_fiis = [Fii(rate, rf, risk, parser.parse_row(row)) for row in parser.parse_table()]
+    all_fiis = [fii for fii in all_fiis if not fii.downside() and fii.price <= filter_price]
+    all_fiis.sort(key=lambda x: x.ref, reverse=False)
+
+    unique_all_fiis = {}
+    for fii in all_fiis:
+        if '{}'.format(fii.code) not in unique_all_fiis:
+            unique_all_fiis['{}'.format(fii.code, fii.ref)] = fii
+
+    all_fiis = sorted(unique_all_fiis.values(), key=lambda x: (x.average_yield(), -1*x.price, x.downside_perc()), reverse=True)
+
+    for i, fii in enumerate(all_fiis):
+        print('{:03} {}'.format(i+1, fii))
