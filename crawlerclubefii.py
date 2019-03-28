@@ -162,6 +162,7 @@ if __name__ == '__main__':
     arg_parse.add_argument('--rf', type=float, help='0.225 < 6 months, 6 months > 0.2 < 1 year, 1 year > 0.175 < 2 years, 0.15 < 2 years', default=0.175)
     arg_parse.add_argument('--risk', type=float, help='0.1 or larger for more conservative models',default=0.1)
     arg_parse.add_argument('--filter-price', type=float, help='upper bound of the FIIs price', default=250)
+    arg_parse.add_argument('--show-all', type=bool, help='include FIIs with downside', default=False)
 
     args = arg_parse.parse_args()
 
@@ -173,11 +174,12 @@ if __name__ == '__main__':
     rate = args.idka
     rf = args.rf
     risk = args.risk
+    show_all = args.show_all
 
     filter_price = args.filter_price
 
     all_fiis = [Fii(rate, rf, risk, parser.parse_row(row)) for row in parser.parse_table()]
-    all_fiis = [fii for fii in all_fiis if not fii.downside() and fii.price <= filter_price]
+    all_fiis = [fii for fii in all_fiis if fii.downside() == show_all or not fii.downside() and fii.price <= filter_price]
     all_fiis.sort(key=lambda x: x.ref, reverse=False)
 
     unique_all_fiis = {}
