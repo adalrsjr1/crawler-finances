@@ -164,6 +164,7 @@ if __name__ == '__main__':
     arg_parse.add_argument('--filter-price', type=float, help='upper bound of the FIIs price', default=250)
     arg_parse.add_argument('--filter-yield', type=float, help='average return yield default: 0.6', default=0.6)
     arg_parse.add_argument('--show-all', type=bool, help='include FIIs with downside', default=False)
+    arg_parse.add_argument('--fiis', nargs='+', help='list of FIIs to filter')
 
     args = arg_parse.parse_args()
 
@@ -177,7 +178,7 @@ if __name__ == '__main__':
     risk = args.risk
     show_all = args.show_all
     filter_yield = args.filter_yield
-
+    filter_fiis = args.fiis
     filter_price = args.filter_price
 
     all_fiis = [Fii(rate, rf, risk, parser.parse_row(row)) for row in parser.parse_table()]
@@ -192,7 +193,9 @@ if __name__ == '__main__':
 
     all_fiis = sorted(unique_all_fiis.values(), key=lambda x: (x.average_yield(), -1*x.price, x.downside_perc()), reverse=True)
 
+    if filter_fiis != None:
+        all_fiis = [fii for fii in all_fiis if fii.code.lower() in filter_fiis]
+
     for i, fii in enumerate(all_fiis):
         print('{:03} {}'.format(i+1, fii))
 
-    print(filter_yield)
